@@ -11,6 +11,8 @@ escolas <- read.table("Escolas_Brasil_v3.csv", header=T, as.is=T, sep = ",",  qu
 library(dplyr)
 library(tidyr)
 library(stringr)
+library(XML)
+library(RCurl)
 
 escolas <- escolas %>%
   mutate(id = str_extract(Nome_Obra, "\\([0-9]+\\)"),
@@ -24,6 +26,7 @@ library(XML)
 setInternet2(TRUE)
 options(timeout=500)
 
+## função que pega dados das contratações
 getConstructionData <- function(url) {
   html <- getURL(url)
   doc <- htmlParse(html)   # parseia url
@@ -32,9 +35,11 @@ getConstructionData <- function(url) {
   df <- data.frame(linksAux, linksAux1)
 }
 
+## cria as urls para passar no loop
 url <- "http://simec.mec.gov.br/painelObras/contratacao.php?obra="
 url_final <- paste(url, escolas$id, sep="")
 
+## loop para pegar todas as obras
 lista_df <- list()
 n <- length(url_final)
 for ( i in 1:n) {
@@ -43,7 +48,7 @@ for ( i in 1:n) {
   if(i %% 1000 == 0) print(i)
 }
 
-
+## adiciona id, e corrige umas infos
 length(lista_df)
 i <- 1
 while ( i <= n) {
@@ -57,32 +62,34 @@ while ( i <= n) {
   i <- i+1
 }
 
-## "Data de Término do Contrato:"
-"Prazo de Vigência:"
-
+# transforma listas em um único df
 obras <- bind_rows(lista_df)
-dim(obras)
-head(obras, 30)
 
+## corrige uns NAs
 obras$linksAux[obras$id==1365 & (is.na(obras$linksAux) | grepl("NA", obras$linksAux ))] <-
   c("Prazo de Vigência1:", "Data de Término do Contrato1:", "Total da Planilha Contratada1:" )
 
-
+## spread
 obras1 <- obras %>%
   spread(linksAux, linksAux1)
-which(grepl("Município", names(obras1)))
 
+## criando banco relacional
+## tabela de obras
+
+## selecionando colunas de tab_obras
 vec_colunas_obras <- c(which(grepl("Município", names(obras1))),
                  which(grepl("Endereço", names(obras1))),
                  which(grepl("Termo/Convênio", names(obras1))))
 
-
+## tabela obras
 base_obras <- obras1 %>%
   select(c(1:4, vec_colunas_obras))
 
+# tabela obra_status (pode varia no tempo)
 base_obras_status <- obras1 %>%
   select(which(grepl("Situação", names(obras1))))     
 
+# tabela empresas
 vec_colunas_empresas <- c(which(grepl("Empresa Contratada", names(obras1))),
                        which(grepl("Endereço", names(obras1))),
                        which(grepl("Termo/Convênio", names(obras1))))
@@ -90,6 +97,7 @@ vec_colunas_empresas <- c(which(grepl("Empresa Contratada", names(obras1))),
 base_empresas <- obras1 %>%
   select(which(grepl("Situação", names(obras1))))         
 
+# 
 names(base_obras)[2] <- "area_construida_m2"
 names(base_obras) <- gsub(":", "", names(base_obras))
 base_obras$area_construida_m2 <- gsub(" m2", "", base_obras$area_construida_m2)
@@ -97,33 +105,3 @@ base_obras$area_construida_m2_1 <- as.numeric(base_obras$area_construida_m2)
 head(base_obras)
 dim(obras1)
 names(obras1)
-
-url1 <- "http://simec.mec.gov.br/painelObras/contratacao.php?obra=1365"
-teste <- getURL(url1)
-pegaLinks(url_final, "#")
-pegaLinks(url_final, "Edital")
-
-getConstructionData <- function(url) {
-  html <- getURL(url)
-  doc <- htmlParse(html)   # parseia url
-  linksAux <- xpathSApply(doc, "//dt", xmlValue)   # coleta os links
-  linksAux1 <- xpathSApply(doc, "//dd", xmlValue) 
-  df <- data.frame(linksAux, linksAux1)
-}
-
-x <- getConstructionData(url_final)
-View(x)
-
-linksFinais <- unique(linksAux[grep(padrao.inicial, linksAux)]) # me traz apenas os links certos
-free(doc)
-
-
-library(RCurl)
-library(XML)
-txt <- htmlToText(url1)
-txt
-http://simec.mec.gov.br/painelObras/licitacao.php?obra=1381#HOMOLOGA%C3%87%C3%83O%20DA%20LICITA%C3%87%C3%83O%201
-
-http://simec.mec.gov.br/painelObras/dadosobra.php?obra=1381
-
-http://simec.mec.gov.br/painelObras/licitacao.php?obra=1381#Edital%20PROINF%C3%82NCIA
