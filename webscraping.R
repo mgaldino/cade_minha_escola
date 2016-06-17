@@ -85,6 +85,14 @@ vec_colunas_obras <- c(which(grepl("Município", names(obras1))),
 base_obras <- obras1 %>%
   select(c(1:4, vec_colunas_obras))
 
+# modificando nomes da tabela base_obras
+names(base_obras)[2] <- "area_construida_m2"
+names(base_obras) <- gsub(":", "", names(base_obras))
+base_obras$area_construida_m2 <- gsub(" m2", "", base_obras$area_construida_m2)
+base_obras$area_construida_m2_1 <- as.numeric(base_obras$area_construida_m2)
+head(base_obras)
+
+
 # tabela obra_status (pode varia no tempo)
 base_obras_status <- obras1 %>%
   select(which(grepl("Situação", names(obras1))))     
@@ -97,11 +105,59 @@ vec_colunas_empresas <- c(which(grepl("Empresa Contratada", names(obras1))),
 base_empresas <- obras1 %>%
   select(which(grepl("Situação", names(obras1))))         
 
-# 
-names(base_obras)[2] <- "area_construida_m2"
-names(base_obras) <- gsub(":", "", names(base_obras))
-base_obras$area_construida_m2 <- gsub(" m2", "", base_obras$area_construida_m2)
-base_obras$area_construida_m2_1 <- as.numeric(base_obras$area_construida_m2)
-head(base_obras)
-dim(obras1)
-names(obras1)
+## tabela contrato
+base_contratos <- obras1 %>%
+  select(which(grepl("Situação", names(obras1))))         
+
+obras <- obras %>%
+  group_by(id) %>%
+  mutate(n_linhas = n()) %>%
+  ungroup()
+head(obras)
+summary(obras)
+x <- filter(obras, n_linhas == 46)
+x <- x %>%
+  filter( id == 1606)
+x$linksAux <- gsub("[0-9]","", x$linksAux)
+x$linksAux[duplicated(x$linksAux)]
+
+# coluna aditivo
+x$aditivo <- NA
+aux_aditivo <- which(x$linksAux=="Denominação:")
+x$aditivo[aux_aditivo] <-  1:length(aux_aditivo)
+
+index_aditivo <- c(which(!is.na(x$aditivo)), length(x$aditivo))
+
+n <- length(index_aditivo) -1
+for ( i in 1:n) {
+  x$aditivo[(index_aditivo[i]-1):index_aditivo[i+1]] <- i
+}
+
+# coluna tipo aditivo
+x$tipo_aditivo <- NA
+aux_tipo_aditivo <- which(x$linksAux=="Tipo de Aditivo:")
+x$tipo_aditivo[aux_tipo_aditivo] <-  x$linksAux1[aux_tipo_aditivo]
+
+# coluna demoninação
+x$denominacao <- NA
+aux_denominacao <- which(x$linksAux=="Denominação:")
+x$denominacao[aux_denominacao] <-  x$linksAux1[aux_denominacao]
+
+# coluna data termino contrato
+x$data_termino_contrato <- NA
+aux_data_termino_contrato <- which(x$linksAux=="Data de Término do Contrato:")
+x$data_termino_contrato[aux_data_termino_contrato] <-  x$linksAux1[aux_data_termino_contrato]
+
+## criando tabela aditivo
+aditivo <- x %>%
+  select(aditivo:denominacao) %>%
+  filter(!is.na(aditivo)) %>%
+  group_by(aditivo) %>%
+  summarise(tipo_aditivo = max(tipo_aditivo, na.rm=T),
+            data_termino_contrato = max(data_termino_contrato, na.rm=T),
+            denominacao = max(denominacao, na.rm=T))
+aditivo
+
+  
+  
+
