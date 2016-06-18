@@ -109,55 +109,102 @@ base_empresas <- obras1 %>%
 base_contratos <- obras1 %>%
   select(which(grepl("Situação", names(obras1))))         
 
-obras <- obras %>%
-  group_by(id) %>%
-  mutate(n_linhas = n()) %>%
-  ungroup()
-head(obras)
-summary(obras)
-x <- filter(obras, n_linhas == 46)
-x <- x %>%
-  filter( id == 1606)
-x$linksAux <- gsub("[0-9]","", x$linksAux)
-x$linksAux[duplicated(x$linksAux)]
+
+
 
 # coluna aditivo
-x$aditivo <- NA
-aux_aditivo <- which(x$linksAux=="Denominação:")
-x$aditivo[aux_aditivo] <-  1:length(aux_aditivo)
+cria_aditivo <- function(df) {
+  df$aditivo <- NA
+  if(sum(grepl("Denominação:", df$linksAux)) > 0) {
+    aux_aditivo <- which(df$linksAux=="Denominação:")
+    df$aditivo[aux_aditivo] <-  1:length(aux_aditivo)
+    index_aditivo <- c(which(!is.na(df$aditivo)), length(df$aditivo))
+    n <- length(index_aditivo) -1
+    for ( i in 1:n) {
+      df$aditivo[(index_aditivo[i]-1):index_aditivo[i+1]] <- i
+    }
+  }
 
-index_aditivo <- c(which(!is.na(x$aditivo)), length(x$aditivo))
-
-n <- length(index_aditivo) -1
-for ( i in 1:n) {
-  x$aditivo[(index_aditivo[i]-1):index_aditivo[i+1]] <- i
+  return(df)
 }
 
-# coluna tipo aditivo
-x$tipo_aditivo <- NA
-aux_tipo_aditivo <- which(x$linksAux=="Tipo de Aditivo:")
-x$tipo_aditivo[aux_tipo_aditivo] <-  x$linksAux1[aux_tipo_aditivo]
+obras$linksAux <- gsub("[0-9]","", obras$linksAux)
 
-# coluna demoninação
-x$denominacao <- NA
-aux_denominacao <- which(x$linksAux=="Denominação:")
-x$denominacao[aux_denominacao] <-  x$linksAux1[aux_denominacao]
+obras_aditivo <- obras %>%
+  group_by(id) %>%
+  do(cria_aditivo(.)) %>%
+  ungroup()
 
-# coluna data termino contrato
-x$data_termino_contrato <- NA
-aux_data_termino_contrato <- which(x$linksAux=="Data de Término do Contrato:")
-x$data_termino_contrato[aux_data_termino_contrato] <-  x$linksAux1[aux_data_termino_contrato]
+cria_colunas_adicionais_aditivo <- function(df) {
+  df$tipo_aditivo <- NA
+  df$denominacao <- NA
+  df$data_termino_contrato <- NA
+  df$termo_convenio <- NA
+  
+  if(sum(grepl("Denominação:", df$linksAux)) > 0) {
+    # coluna tipo aditivo
+    aux_tipo_aditivo <- which(df$linksAux=="Tipo de Aditivo:")
+    df$tipo_aditivo[aux_tipo_aditivo] <-  df$linksAux1[aux_tipo_aditivo]
+    
+    # coluna demoninação
+    aux_denominacao <- which(df$linksAux=="Denominação:")
+    df$denominacao[aux_denominacao] <-  df$linksAux1[aux_denominacao]
+    
+    # coluna data termino contrato
+    aux_data_termino_contrato <- which(df$linksAux=="Data de Término do Contrato:")
+    df$data_termino_contrato[aux_data_termino_contrato] <-  df$linksAux1[aux_data_termino_contrato]
+    
+    ## coluna termo_convenio
+    aux_termo_convenio <- which(df$linksAux=="Termo/Convênio:")
+    df$termo_convenio[aux_termo_convenio] <-  df$linksAux1[aux_termo_convenio]
+  }
+
+  return(df)
+}
+
+obras_aditivo <- obras_aditivo %>%
+  group_by(id) %>%
+  do(cria_colunas_adicionais_aditivo(.)) %>%
+  ungroup()
 
 ## criando tabela aditivo
-aditivo <- x %>%
-  select(aditivo:denominacao) %>%
-  filter(!is.na(aditivo)) %>%
-  group_by(aditivo) %>%
-  summarise(tipo_aditivo = max(tipo_aditivo, na.rm=T),
-            data_termino_contrato = max(data_termino_contrato, na.rm=T),
-            denominacao = max(denominacao, na.rm=T))
-aditivo
-
+cria_tabela_aditivo <- function(df) {
+  stopifnot(require(dplyr))
   
-  
+  if (sum(grepl("Denominação:", df$linksAux)) > 0 ) {
+    aditivo <- df %>%
+      select_("aditivo:termo_convenio") %>%
+      filter_(!is.na("aditivo") | !is.na("termo_convenio")) %>%
+      group_by_("aditivo") %>%
+      summarise_(tipo_aditivo = ~max(tipo_aditivo, na.rm=T),
+                 data_termino_contrato = ~max(data_termino_contrato, na.rm=T),
+                 denominacao = ~max(denominacao, na.rm=T),
+                 termo_convenio = ~max(termo_convenio, na.rm=T)) %>%
+      mutate_(termo_convenio = ~max(termo_convenio, na.rm=T)) %>%
+      filter_(!is.na("aditivo") ) 
+  } else {
+    aditivo <- data.frame(aditivo=NA, tipo_aditivo = NA, data_termino_contrato = NA, 
+                          denominacao = NA, termo_convenio = unique(df$termo_convenio))
+  }
 
+  return(aditivo)
+}
+
+lista_tabela_aditivo <- list()
+vec <- unique(obras$id)
+n <- length(vec)
+for (i in 1:n) {
+  tmp_table <- filter(obras_aditivo, id == vec[i])
+  lista_tabela_aditivo[[i]] <- cria_tabela_aditivo(tmp_table)
+}
+
+obra_aditivos <- bind_rows(lista_tabela_aditivo) %>%
+  filter(!is.na(termo_convenio), !is.na(aditivo)) %>%
+  mutate(aditivo_id = 1:n())
+
+head(obra_aditivos, 10)
+
+x <- obras_aditivo %>%
+  filter( id == 1606)
+View(x)
+  
