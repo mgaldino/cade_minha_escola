@@ -27,8 +27,6 @@ base_obras <- base_obras %>%
          situacao_termo_convenio = replace(situacao_termo_convenio, situacao_termo_convenio=="-", NA),
          termo_convenio = replace(termo_convenio, termo_convenio=="-", NA))
 
-View(base_obras)
-head(base_obras)
 
 id_valor_contrato <- obras %>%
   group_by(id) %>%
@@ -41,9 +39,10 @@ id_valor_contrato <- obras %>%
          linksAux1 = as.numeric(gsub(",", ".", linksAux1))) %>%
   spread(linksAux, linksAux1)
 
-
+base_escolas <- select(escolas, which(names(escolas) %in% names(escolas)[c(9,12,14)]))
 base_obras <- base_obras %>%
-  left_join(id_valor_contrato, by="id")
+  left_join(id_valor_contrato, by="id") %>%
+  left_join(base_escolas, by="id")
 
 # tabela obra_status (pode variar no tempo)
 base_obras_status <- obras1 %>%
