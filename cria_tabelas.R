@@ -3,6 +3,9 @@
 ## criando banco relacional
 ## tabela de obras
 
+## carregndo base
+load(file="obras.RData")
+
 ## selecionando colunas de tab_obras
 vec_colunas_obras <- c(which(grepl("Município", names(obras1))),
                        which(grepl("Endereço", names(obras1))),
@@ -14,13 +17,35 @@ base_obras <- obras1 %>%
 
 # modificando nomes da tabela base_obras
 names(base_obras)[2] <- "area_construida_m2"
+names(base_obras)[7:9] <- c("fim_termo_convenio", "situacao_termo_convenio", "termo_convenio")
 names(base_obras) <- gsub(":", "", names(base_obras))
 base_obras$area_construida_m2 <- gsub(" m2", "", base_obras$area_construida_m2)
-base_obras$area_construida_m2_1 <- as.numeric(base_obras$area_construida_m2)
+base_obras$area_construida_m2 <- as.numeric(base_obras$area_construida_m2)
+
+base_obras <- base_obras %>%
+  mutate(fim_termo_convenio = replace(fim_termo_convenio, fim_termo_convenio=="-", NA),
+         situacao_termo_convenio = replace(situacao_termo_convenio, situacao_termo_convenio=="-", NA),
+         termo_convenio = replace(termo_convenio, termo_convenio=="-", NA))
+
+View(base_obras)
 head(base_obras)
 
+id_valor_contrato <- obras %>%
+  group_by(id) %>%
+  filter(linksAux == "Valor do Contrato:",
+         !duplicated(linksAux)) %>%
+  mutate(linksAux = gsub("Valor do Contrato:", "valor_contrato", linksAux),
+         linksAux1 = gsub("R\\$ ", "", linksAux1),
+         linksAux1 = gsub("\\.", "", linksAux1),
+         linksAux1 = gsub("Ver histórico de aditivos", "", linksAux1),
+         linksAux1 = as.numeric(gsub(",", ".", linksAux1))) %>%
+  spread(linksAux, linksAux1)
 
-# tabela obra_status (pode varia no tempo)
+
+base_obras <- base_obras %>%
+  left_join(id_valor_contrato, by="id")
+
+# tabela obra_status (pode variar no tempo)
 base_obras_status <- obras1 %>%
   select(which(grepl("Situação", names(obras1))))     
 
@@ -131,8 +156,10 @@ for (i in 1:n) {
   lista_tabela_aditivo[[i]] <- cria_tabela_aditivo(tmp_table)
 }
 
-obra_aditivos <- bind_rows(lista_tabela_aditivo)
+obra_aditivos1 <- bind_rows(lista_tabela_aditivo)
 
-obra_aditivos1 <- obra_aditivos %>% 
+obra_aditivos <- obra_aditivos1 %>% 
   filter(!is.na(termo_convenio), !is.na(aditivo)) %>%
   mutate(aditivo_id = 1:n())
+
+
