@@ -18,7 +18,8 @@ escolas <- escolas %>%
   mutate(id = str_extract(Nome_Obra, "\\([0-9]+\\)"),
          id = gsub("\\(", "", id),
          id = gsub("\\)", "", id))
-  
+
+names(escolas)[c(9,12)] <- c("Situacao_obra_2015", "Termino_previsto_2015")
 head(escolas)
 
 library(RCurl)
