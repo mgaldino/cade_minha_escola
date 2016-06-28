@@ -19,7 +19,7 @@ remove_acento <- function(vec, Toupper=F) {
   return(vec)
 }
 
-Sys.setlocale(category = "LC_ALL", locale = "pt_BR")
+# Sys.setlocale(category = "LC_ALL", locale = "pt_BR")
 
 library(dplyr)
 setwd("/Users/natalia/Documents/Manoel")
@@ -29,6 +29,14 @@ educ <- read.table("tb_cidades.txt", header=T, as.is=T, na.strings = "", sep = "
 
 escolas <- read.table("Escolas_Brasil_v3.csv", header=T, as.is=T, sep = ",",  quote="\"", na.strings = "NA",
                       fileEncoding = "UTF-8") 
+
+escolas <- escolas %>%
+  mutate(id = str_extract(Nome_Obra, "\\([0-9]+\\)"),
+         id = gsub("\\(", "", id),
+         id = gsub("\\)", "", id))
+
+names(escolas)[c(9,12)] <- c("Situacao_obra_2015", "Termino_previsto_2015")
+
 head(escolas)
 
 escolas_am  <- filter(escolas, UF == 'AM')
@@ -79,11 +87,13 @@ View(educ)
 ## Com o que vocês já aprenderam (sort of)
 amarribo <- educ %>%
   dplyr::select(amarribo, habitantes) %>%
-  rename( cidades = amarribo)
+  rename( cidades = amarribo) %>%
+  mutate(ong = "amarribo")
 
 osb <- educ %>%
   dplyr::select(osb, habitantes_osb) %>%
-  rename( cidades = osb)
+  rename( cidades = osb) %>%
+  mutate(ong = "osb")
 
 # join
 
@@ -99,11 +109,100 @@ head(cidades_match1)
 length(unique(cidades_match1$cidades))
 # 275
 
+## match com escolas
+escolas <- escolas %>%
+  mutate(cidades = remove_acento(Municipio))
+
+cidades_match2 <- amarribo %>%
+  inner_join(., escolas, by= "cidades") %>%
+  filter(!is.na(cidades) ) ## por alguma razão, algumas linhas com tudo NA. tirei essas linhas
+
+dim(cidades_match2)
+head(cidades_match2)
+length(unique(cidades_match2$cidades))
+
+########
+## UF
+####
+
+## total de UF
+cidades_match2 %>%
+  summarise(n_distinct(UF))
+# 24
+
+## Num cidades por UF
+cidade_uf_amarribo <- cidades_match2 %>%
+  group_by(UF) %>%
+  summarise(total=n_distinct(cidades)) %>%
+  ungroup() %>%
+  arrange(desc(total))
+
+View(cidade_uf_amarribo)
+## num obras por UF
+obras_uf_amarribo <- cidades_match2 %>%
+  group_by(UF) %>%
+  summarise(total=n_distinct(Nome_Obra)) %>%
+  ungroup() %>%
+  arrange(desc(total))
+
+View(obras_uf_amarribo)
+
+######
+## Cidades
+#####
+## num cidades
+cidades_match2 %>%
+  summarise(n_distinct(cidades))
+# 165
+
+## por situação
+cidades_match2 %>%
+  group_by(Situacao_obra_2015) %>%
+  summarise(n_distinct(cidades))
+
+#####
+## Obras
+######
+# num obras
+cidades_match2 %>%
+  summarise(n_distinct(Nome_Obra))
+
+# por situção
+cidades_match2 %>%
+  group_by(Situacao_obra_2015) %>%
+  summarise(n_distinct(Nome_Obra))
 
 tail(cidades_match1$cidades)
 View(cidades_match1)
 # 277 cidades
 
+
+## osb
+cidades_match_osb <- osb %>%
+  inner_join(., escolas, by= "cidades") %>%
+  filter(!is.na(cidades) ) ## por alguma razão, algumas linhas com tudo NA. tirei essas linhas
+
+## total de UF
+cidades_match_osb %>%
+  summarise(n_distinct(UF))
+# 24
+
+## Num cidades por UF
+cidades_match_osb_uf <- cidades_match_osb %>%
+  group_by(UF) %>%
+  summarise(total=n_distinct(cidades)) %>%
+  ungroup() %>%
+  arrange(desc(total))
+
+View(cidades_match_osb_uf)
+## num obras por UF
+obras_uf_osb <- cidades_match_osb %>%
+  group_by(UF) %>%
+  summarise(total=n_distinct(Nome_Obra)) %>%
+  ungroup() %>%
+  arrange(desc(total))
+
+View(obras_uf_osb)
 # quantos habitantes?
 ## preciso somar, mas cuidado com o NA
 ## vou retirar o NA, e substituit por 0
