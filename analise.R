@@ -37,3 +37,6 @@ gasto_obra %>%
 ### 
 # 830001/2007
 filter(base_obras, termo_convenio == "830001/2007")
+
+
+### juntando escolas antigas com novas

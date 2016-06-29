@@ -3,7 +3,10 @@
 ## criando banco relacional
 ## tabela de obras
 
+library(dplyr)
+library(tidyr)
 ## carregndo base
+setwd("/Users/natalia/Documents/Manoel")
 load(file="obras.RData")
 
 ## selecionando colunas de tab_obras
