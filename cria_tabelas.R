@@ -9,10 +9,23 @@ library(tidyr)
 setwd("/Users/natalia/Documents/Manoel")
 load(file="obras.RData")
 
+## spread
+obras1 <- obras %>%
+  filter(!(linksAux %in% c("Valor do Contrato:", "Denominação:", "Tipo de Aditivo:" , 
+                           "Data de Assinatura do Aditivo:", "Justificativa do Aditivo:",
+                           "Prazo de Vigência:", "Data de Término do Contrato:"))) %>%
+  mutate(id_filtro = paste(linksAux, linksAux1, id, sep="_")) %>%
+  filter(!duplicated(id_filtro)) %>%
+  select(1:3) %>%
+  spread(linksAux, linksAux1)
+
+
 ## selecionando colunas de tab_obras
 vec_colunas_obras <- c(which(grepl("Município", names(obras1))),
                        which(grepl("Endereço", names(obras1))),
-                       which(grepl("Termo/Convênio", names(obras1))))
+                       which(grepl("Termo/Convênio", names(obras1))),
+                       which(grepl("Situação", names(obras1))))
+
 
 ## tabela obras
 base_obras <- obras1 %>%
@@ -29,6 +42,8 @@ base_obras <- base_obras %>%
   mutate(fim_termo_convenio = replace(fim_termo_convenio, fim_termo_convenio=="-", NA),
          situacao_termo_convenio = replace(situacao_termo_convenio, situacao_termo_convenio=="-", NA),
          termo_convenio = replace(termo_convenio, termo_convenio=="-", NA))
+# save(file="base_obras.RData", base_obras)
+load(file="base_obras.RData")
 
 
 id_valor_contrato <- obras %>%
