@@ -14,6 +14,7 @@ library(stringr)
 library(XML)
 library(RCurl)
 
+## extrai id das escolas
 escolas <- escolas %>%
   mutate(id = str_extract(Nome_Obra, "\\([0-9]+\\)"),
          id = gsub("\\(", "", id),
@@ -22,8 +23,7 @@ escolas <- escolas %>%
 names(escolas)[c(9,12)] <- c("Situacao_obra_2015", "Termino_previsto_2015")
 head(escolas)
 
-library(RCurl)
-library(XML)
+
 setInternet2(TRUE)
 options(timeout=500)
 
